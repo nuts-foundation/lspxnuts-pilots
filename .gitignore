@@ -1,0 +1,36 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# the data dir
+data
+
+# Test binary, build with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Editors
+.idea
+.run
+
+# MacOS
+.DS_Store
+
+# ignore generated pem and key files from running the nuts-node executable.
+/*.pem
+/*.key
+
+# ignore generated database files
+/*.db
+
+/nuts-node
+nuts.yaml
+
+# Local scratch directory and Claude Code session state
+.scratch/
+.claude/scheduled_tasks.lock
