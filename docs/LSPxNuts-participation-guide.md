@@ -45,26 +45,40 @@ process. Items that scale per HCP customer are flagged.
 ## 3. Reference architecture
 
 ```mermaid
-flowchart TD
+---
+title: Reference architecture
+config:
+    flowchart:
+        defaultRenderer: "elk"
+---
+flowchart TB
     subgraph Vendor["Nuts vendor (this guide)"]
-        UI["Operator UI (built by the vendor)<br/>- patient enrolment (HCP clinical staff)<br/>- professional delegation (HCP HR / staff admin)<br/>- service-provider delegation (HCP signing authority)"]
-        Node["Nuts node<br/>- vendor SP subject + wallet<br/>- one HCP subject + wallet per customer<br/>- /request-credential<br/>- /request-service-access-token"]
-        Vault[("Key vault<br/>(Azure KV or HashiCorp Vault)")]
+        direction TB
+        UI["`**Operator UI**
+- patient enrolment
+- professional delegation
+- service-provider-delegation`"]
+        Node["`**Nuts node**<br/>- vendor SP wallet<br/>- HCP wallet per customer<br/>- /request-credential<br/>- /request-service-access-token`"]
+        Vault[("Key vault")]
         AET["AET ZORG-ID SDK"]
+
         UI --> Node
         Node --> Vault
         Node --> AET
     end
 
-    Gov["Pilot governance<br/>SP credential issuance"]
-    AS["VZVZ<br/>MEDGEG AS"]
-    LSP["LSP"]
-    RS["MEDGEG resource servers<br/>(other participants)"]
+    subgraph External["External"]
+        direction LR
+        Gov["Pilot governance<br/>(SP VC issuance)"]
+        LSP-AS["VZVZ<br/>AS"]
+        LSP["LSP"]
+        RS["MEDGEG RS<br/>(other participants)"]
+        LSP --> RS
+    end
 
-    Node -. did:web resolution .-> Gov
-    Node -- jwt-bearer two-VP token request --> AS
+    Node -. did:web .-> Gov
+    Node -- token request --> LSP-AS
     Node -- MEDGEG call + access token --> LSP
-    LSP --> RS
 ```
 
 ## 4. Roles a Nuts vendor plays in the pilot
