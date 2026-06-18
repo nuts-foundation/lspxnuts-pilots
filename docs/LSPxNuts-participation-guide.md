@@ -7,16 +7,45 @@ and roughly how much effort each piece is. It is not an implementation
 manual; once a vendor commits to participating, the detailed setup docs,
 sample payloads, and a working reference stack are handed over.
 
+## To be determined
+
+Open items to resolve before this guide is final. Each is tracked in an issue
+where one exists.
+
+- **TLS/mTLS cert for the data connection** (#2). Nuts convention
+  (nuts-node#4156): OAuth2 endpoints → public cert, data endpoints →
+  PKIoverheid Private cert. Exact pilot requirement not yet fixed.
+- **Who issues the AORTA-afsprakenstelsel credentials** (#9) — which party hosts
+  issuance of the `ServiceProviderCredential` and who vendors should contact to
+  obtain it. (The guide currently refers to this generically as "Pilot
+  governance".)
+- **Whether JSON-LD context files must be mounted at all** (#6). Pilot
+  credentials are JWT-format; JSON-LD is used only for signature verification,
+  so a local context bundle may not be needed.
+- **How vendors acquire the AET SDK** (#10) — the AET ZORG-ID SDK is a Docker
+  image; distribution channel and licensing/access path to be determined.
+- **How the Nuts node authenticates to the AET SDK** (#11) — the authentication
+  mechanism, and whether AET certificate material is needed for it, to be
+  determined.
+- **Soft test certificates** (#12) — produced by the pilot team so developers
+  can work without physical UZI cards; need to be hosted somewhere and linked
+  from this guide.
+- **How vendors discover the LSP's endpoints** (#13) — via GF Addressing or the
+  Nuts Discovery Service; not yet decided.
+- **Number of Nuts/MEDGEG APIs per feature** (#3). Detailed integration guide
+  (endpoints, examples) still being written.
+- **Reference architecture details** (#4) — the deployment diagram below is a
+  first version; details still need confirmation.
+
 ## 1. Scope of this document
 
-The pilot exercises the two-VP (Verifiable Presentation) RFC 7523
+The pilot runs the two-VP (Verifiable Presentation) RFC 7523
 jwt-bearer access-token flow for MEDGEG against the Authorization Server
 (AS) hosted by VZVZ. There are several participant roles in the pilot.
 This guide is aimed at the **Nuts vendors**: parties that operate Nuts
-infrastructure and act in the OAuth requestor and client roles. With
-the access token obtained from VZVZ, the vendor calls LSP, which routes
-to the Resource Server (RS) hosted by other participants. The RS side
-is out of scope here.
+infrastructure and act in the OAuth requestor and client roles. The
+Resource Server (RS) — the LSP FHIR API, operated by VZVZ — is out of
+scope here.
 
 A Nuts vendor hosts a Nuts node that contains wallets for:
 
@@ -28,6 +57,22 @@ The vendor builds and operates the issuance UIs that HCP staff use to
 manage their credentials. This document is not intended for the HCPs
 themselves.
 
+### Prerequisites at a glance
+
+- [ ] Public `.nl` URL — the domain in the node's did:web DID (DNS, TLS, stable hostname)
+- [ ] SQL database for node storage
+- [ ] Key storage for signing keys (external store or on-disk)
+- [ ] ZorgID agreement with AET (vendor; one per HCP too)
+- [ ] Test smart cards from zorgcsp.nl
+- [ ] Supported smart card reader (e.g. HID OMNIKEY 3121) — available to
+      developers/testers, and on the workstations of staff doing patient
+      enrollment and professional delegation during the pilot
+- [ ] UZI server certificate — for the HealthcareProviderCredential (per HCP customer)
+- [ ] Personal UZI care-professional card (zorgverlenerspas) — for the
+      HealthcareProfessionalDelegationCredential; can also perform patient enrollment
+- [ ] Personal UZI employee card (medewerkerspas op naam) — optional; patient
+      enrollment only, not needed if the zorgverlenerspas is used
+
 ## 2. Effort buckets
 
 Each subsection is marked with one of:
@@ -37,62 +82,60 @@ Each subsection is marked with one of:
 - L - three days to a week
 - XL - more than a week
 
-These are rough estimates for a backend engineer with prior experience
-operating containerized services and no Nuts-specific background. Add
-buffer if infra changes have to thread through a multi-step change
-process. Items that scale per HCP customer are flagged.
+These are rough estimates for a backend engineer with experience
+operating containerized services but no Nuts-specific background.
+Multiply if infrastructure changes have to go through a
+change-management process. Items that scale per HCP customer are
+flagged.
 
 ## 3. Reference architecture
 
 ```mermaid
----
-title: Reference architecture
-config:
-    flowchart:
-        defaultRenderer: "elk"
----
-flowchart TB
-    subgraph Vendor["Nuts vendor (this guide)"]
-        direction TB
-        UI["`**Operator UI**
-- patient enrolment
-- professional delegation
-- service-provider-delegation`"]
-        Node["`**Nuts node**<br/>- vendor SP wallet<br/>- HCP wallet per customer<br/>- /request-credential<br/>- /request-service-access-token`"]
-        Vault[("Key vault")]
-        AET["AET ZORG-ID SDK"]
+flowchart LR
+  subgraph Vendor["Nuts vendor (this guide)"]
+    UI["Healthcare Provider Operator UI<br/>[Vendor-built web UI]<br/>Issuance UIs used by HCP staff"]
+    Node["Nuts node<br/>[Container]<br/>Hosts SP and per-HCP wallets; issues credentials and requests tokens"]
+    Backend["Vendor backend / EHR<br/>[Vendor product]<br/>Calls the LSP FHIR API with the access token"]
+    Keys[("Nuts node key storage")]
+    AET["AET ZORG-ID SDK<br/>[Container]<br/>Issues PatientEnrollmentCredential and HealthCareProfessionalDelegationCredential"]
+    UI --> Node
+    Backend --> Node
+    Node --> Keys
+    Node --> AET
+  end
 
-        UI --> Node
-        Node --> Vault
-        Node --> AET
-    end
+  Gov["Pilot governance<br/>[External]<br/>Issues the ServiceProviderCredential"]
 
-    subgraph External["External"]
-        direction LR
-        Gov["Pilot governance<br/>(SP VC issuance)"]
-        LSP-AS["VZVZ<br/>AS"]
-        LSP["LSP"]
-        RS["MEDGEG RS<br/>(other participants)"]
-        LSP --> RS
-    end
+  subgraph LSP["LSP (VZVZ)"]
+    AS["OAuth2 token endpoint<br/>[MEDGEG AS]"]
+    RS["MEDGEG FHIR API<br/>[Resource server]"]
+  end
 
-    Node -. did:web .-> Gov
-    Node -- token request --> LSP-AS
-    Node -- MEDGEG call + access token --> LSP
+  Holders["Data holders behind the LSP<br/>[External]"]
+
+  Node -->|did:web resolution| Gov
+  Node -->|jwt-bearer two-VP token request| AS
+  Backend -->|MEDGEG query + access token| RS
+  RS -->|forwards queries| Holders
 ```
+
+The vendor obtains the access token from the LSP OAuth2 token endpoint
+(the MEDGEG AS) via the two-VP jwt-bearer flow, then uses it at the LSP
+FHIR API (the MEDGEG resource server). The LSP forwards queries to the
+data holders behind it.
 
 ## 4. Roles a Nuts vendor plays in the pilot
 
 - OAuth **requestor and client**: the vendor's SP subject calls VZVZ to
   obtain a service access token, and the vendor's software then calls
-  LSP with that token. LSP routes to the MEDGEG resource server
-  operated by other pilot participants.
+  the MEDGEG resource server with that token.
 - **Wallet operator for HCP customers**: the vendor hosts the wallet
   for every participating HCP and provides the issuance UIs through
   which HCP staff manage their credentials.
 
-The MEDGEG resource server itself is hosted by other pilot participants
-behind LSP and is not covered here.
+The MEDGEG resource server is the LSP FHIR API, operated by VZVZ. The
+LSP forwards queries to the data holders behind it; what sits behind the
+LSP is not visible to the vendor and is out of scope here.
 
 ---
 
@@ -100,67 +143,71 @@ behind LSP and is not covered here.
 
 ### A.1 Prerequisites (M-L)
 
-Material the vendor must have lined up before starting. These are split
-into paperwork (typically owned by different people inside the
-organisation) and infrastructure.
-
-**Lead times warning**: certificate procurement (UZI, AET-issued
-material, test smart cards from `zorgcsp.nl`) and the ZorgID agreement
-all involve external parties with their own throughput. Request early.
-Where an HCP customer already holds UZI cert material at another
-vendor, do not share private key material between vendors; the HCP
-should request a separate cert per vendor.
-
-**Paperwork (request early, owners typically outside engineering)**
-
-- A **ZorgID agreement** with AET for the vendor. Each participating
-  HCP needs their own agreement as well.
-- **AET cert material** for the vendor's AET ZORG-ID SDK deployment,
-  obtained directly from AET under their licensing terms.
-- **Test smart cards and certificates** from `zorgcsp.nl` for
-  development and end-to-end validation. Soft certificates can be used
-  during early development so engineers do not need physical cards;
-  test cards have to be requested before the issuance flows can be
-  validated against the real workstation experience.
-- **UZI cert material per HCP customer**. The HCP organisation
-  requests this themselves; the vendor does not request it on the
-  HCP's behalf. Used for the Healthcare Provider credential issuance
-  step in Part B.
+The prerequisites split into infrastructure (set up by ops/engineering) and
+paperwork/agreements (often owned by a different person, with longer lead
+times). **Start the paperwork early:** UZI certificate acquisition alone takes
+at least two weeks; begin acquiring certificates and putting agreements
+(ZorgID, AET) in place at least a month before integration work starts.
 
 **Infrastructure**
 
-- A participant-controlled public URL on a `.nl` domain that resolves
-  did:web (Decentralized Identifier, web method) identifiers back to
-  the node. The `.nl` domain is a pilot requirement. DNS, TLS, and a
-  stable hostname need to be in place. **Recommendation**: deploy on
-  the root of the (sub)domain. Running under a path requires rewriting
-  on the `.well-known` endpoints which complicates the setup.
-- A SQL database for relational storage (SQLite or Postgres; use
-  Postgres if it is already operated).
-- At least one **smart card reader** per development workstation that
-  will exercise the issuance UIs end-to-end.
-- A reachable **key vault**: HashiCorp Vault or Azure Key Vault. The
-  node's signing keys are stored there; the vault is a hard dependency
-  for the pilot, not optional.
+- A participant-controlled public URL on a `.nl` domain — this is the domain in
+  the node's did:web (Decentralized Identifier, web method) DID and must resolve
+  back to the node. The `.nl` domain is a pilot requirement; DNS, TLS, and a
+  stable hostname need to be in place. Recommendation: serve the node at the
+  root of the (sub)domain, otherwise the `.well-known` endpoints need awkward
+  URL rewriting.
+- A **SQL database** for the node's storage. Any database supported by the Nuts
+  node works (PostgreSQL, SQL Server, MySQL); SQLite is best kept to development
+  environments. BBolt is used only for gRPC connection storage. On-disk storage
+  does not need to be persistent unless signing keys are kept there.
+- **Key storage** for the node's signing keys: an external key store (HashiCorp
+  Vault or Azure Key Vault) is recommended. On-disk storage is also supported,
+  but then the vendor is responsible for securing encryption and data at rest.
+- At least one **supported smart card reader** (for example, the HID OMNIKEY
+  3121) for the workstations that run the issuance UIs.
 
-Note that the Healthcare Provider and Service Provider credentials
-themselves are not prerequisites; they are issued or loaded once the
-node is running and DIDs exist (see Part B).
+**Paperwork / agreements**
+
+- A **ZorgID agreement** with AET for the vendor (each participating HCP needs
+  their own agreement as well).
+- **Test smart cards** from `zorgcsp.nl`. Soft test certificates (provided by
+  the pilot team, #12) can be used during early development so developers do not
+  need physical cards; physical test cards have to be requested before the
+  issuance flows can be validated against the real workstation experience.
+- **UZI material per HCP customer**. The HCP organisation requests this
+  themselves; the vendor does not request it on the HCP's behalf. Where an HCP
+  already holds UZI cert material at another vendor, do not share private key
+  material between vendors — the HCP requests a separate cert per vendor.
+  - a **UZI server certificate** for the `HealthcareProviderCredential` (Part B);
+  - a personal **zorgverlenerspas** (UZI-pas zorgverlener op naam) for the
+    `HealthCareProfessionalDelegationCredential`; it can also perform patient
+    enrollment;
+  - optionally a personal **medewerkerspas op naam** (UZI-pas medewerker op
+    naam) for patient enrollment — not needed if the zorgverlenerspas is used.
+
+How the Nuts node authenticates to the AET ZORG-ID SDK, and whether AET
+certificate material is required for it, is still being determined (#11).
+
+Note that the Healthcare Provider and Service Provider credentials themselves
+are not prerequisites; they are issued or loaded once the node is running and
+DIDs exist (see Part B).
 
 ### A.2 Base image and configuration (S)
 
 - A pinned `nuts-node` container image is available for the pilot
-  window. No patches, no fork; the released binary covers everything
-  the pilot needs, and the AET and other required certificate
-  authorities are baked into the image.
+  window. The released binary covers everything the pilot needs, and
+  the AET and other required certificate authorities are baked into the
+  image.
 - Configuration is a single `nuts.yaml`. The pilot-specific bits
   beyond a default install are:
   - the public `.nl` URL for did:web resolution
   - `auth.experimental.jwtbearerclient: true` (gates the two-VP flow)
-  - the crypto backend pointing at the vault
-  - JSON-LD context mappings for the credential contexts. The pilot
-    bundle ships the context files; the setup docs that accompany the
-    bundle cover where to mount them and how to point Nuts at them.
+  - the crypto backend pointing at the configured key storage
+  - JSON-LD context mappings (`jsonld.contexts.localmapping`) for the
+    credential contexts — needed only if the node must process the
+    contexts locally; whether the pilot's JWT credentials require this
+    is still being verified (#6)
 - Strict mode on. The internal API is bound to a private interface;
   the vendor decides how to authenticate operators in front of it.
 
@@ -195,9 +242,10 @@ credential work can proceed for that customer.
 
 ### Part A total
 
-A vendor with prior experience operating containerized services and a
-key vault in production can expect **3-5 working days** end-to-end for
-Part A.
+A vendor with experience operating containerized services and key
+storage in production can expect **3-5 working days** end-to-end for
+Part A, dominated by the key storage integration and the subject
+management surface.
 
 ---
 
@@ -207,6 +255,10 @@ This is the larger of the two parts. The vendor integrates two new Nuts
 endpoints, hosts the AET SDK, populates the wallet for every customer,
 and builds three UIs that fit into three different points in HCP staff
 workflows.
+
+_The exact number of Nuts/MEDGEG API calls per feature is still being
+finalised (#3); the counts below describe the integration surface
+qualitatively._
 
 ### B.1 AET ZORG-ID SDK hosting (M-L)
 
@@ -234,8 +286,7 @@ token request can succeed.
   `HealthcareProviderCredential` for that HCP using the
   `go-didx509-toolkit` CLI against the HCP's UZI material, then load
   it via the same wallet endpoint. Using the CLI directly is fine for
-  the pilot; no need to fully integrate this step into customer
-  onboarding tooling yet.
+  the pilot.
 
 ### B.3 Three issuance touchpoints (the real Part B work)
 
@@ -249,7 +300,7 @@ be performed by a healthcare professional holding a UZI smart card, at
 a workstation that has a smart card reader and ZorgID (AET) installed.
 During development the workstation requirement can be relaxed by
 configuring soft certificates, so engineers do not need a physical
-card to exercise the flow. Test cards from `zorgcsp.nl` are required
+card to run the flow. Test cards from `zorgcsp.nl` are required
 before the UIs can be validated end-to-end as HCP staff will use them.
 
 #### B.3.a Service Provider Delegation (L)
@@ -264,8 +315,8 @@ before the UIs can be validated end-to-end as HCP staff will use them.
 - **Where it lives in the vendor's product**: a governance /
   contracting area gated by signatory role. Likely a net-new screen
   for most vendors.
-- **Workstation requirement**: no smart card needed for this one; the
-  signing authority operates inside the vendor's product directly.
+- **Workstation requirement**: none; the signing authority operates
+  inside the vendor's product directly.
 
 #### B.3.b Healthcare Professional Delegation (M)
 
@@ -323,18 +374,16 @@ parallel during pilot onboarding.
 ### B.5 Presentation Definitions (S)
 
 The PD (Presentation Definition) JSON files are provided by the
-pilot. The vendor places them in the configured policy directory; the
-node reads them from disk on demand. No authoring on the vendor's
-side.
+pilot. The vendor drops them in the configured policy directory.
 
-### B.6 Wallet management (S)
+### B.6 Credential lifecycle (S)
 
 The Nuts node exposes list and delete endpoints on the holder wallet,
-and `nuts-admin` exposes the same operations through its UI. Deleting
-a credential is a single API call; the vendor will want a credential
-lifecycle path in their operations toolkit, since re-issuance can
-leave duplicates that complicate matching. Trivial to wire; worth
-having from day one.
+and `nuts-admin` exposes the same operations through its UI. The
+vendor will want a way to list and delete credentials in their
+operations toolkit, since re-issuance can leave duplicates that
+complicate matching. It is a single API call; worth having from day
+one.
 
 ### Part B total
 
@@ -389,8 +438,9 @@ external call requires significant new UI work.
 
 ## Total effort estimate
 
-For a vendor with prior experience operating containerized services,
-an extensible product backend, and a key vault already in production:
+For a vendor with experience operating containerized services, an
+extensible product backend, governance / HR / clinical surfaces that
+can be modified, and key storage already in production:
 
 - Part A: 3-5 days
 - Part B: 8-12 days
