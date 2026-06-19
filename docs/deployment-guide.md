@@ -53,6 +53,7 @@ flowchart TB
   Inbound --> RP
   RP -->|public API| Node
   Node -->|request credential| AETSDK
+  AETSDK -->|communicates with| AETIDP
   Node --> DB
   Node --> Keys
   EHR -->|request access token| Node
@@ -76,7 +77,8 @@ Components:
 - **EHR** (existing) — acquires access tokens from the node.
 - **EHR admin interface** (existing) — drives credential issuance via the node.
 - **Central AET IDP** (external, existing) — the user's browser authenticates
-  the UZI smartcard against it; not deployed by the vendor.
+  the UZI smartcard against it, and the AET SDK communicates with it; not
+  deployed by the vendor.
 
 ## 3. Nuts node deployment
 
