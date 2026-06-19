@@ -31,7 +31,10 @@ grey are existing systems the vendor already runs or that exist externally.
 
 ```mermaid
 flowchart TB
-  Browser["User browser<br/>[Browser]<br/>HCP staff doing credential issuance"]
+  subgraph WS["Workstation — existing (AET ZorgID installed for the pilot)"]
+    Browser["User browser<br/>[Browser]<br/>HCP staff doing credential issuance"]
+    ZorgID["AET ZorgID<br/>[Installed software]<br/>Smartcard crypto via the card reader"]
+  end
 
   Inbound(["Inbound public traffic<br/>did:web resolution, OAuth2 token requests"])
 
@@ -59,12 +62,12 @@ flowchart TB
   EHR -->|request access token| Node
   Admin -->|credential issuance| Node
   Browser -->|uses| Admin
-  Browser -->|UZI authentication| AETIDP
+  ZorgID -->|communicates with| AETIDP
 
   classDef deploy fill:#cfe3ff,stroke:#3b6ea5,color:#11233a;
   classDef existing fill:#e5e5e5,stroke:#888,color:#222;
   class RP,Node,AETSDK,DB,Keys deploy;
-  class EHR,Admin,AETIDP,Browser existing;
+  class EHR,Admin,AETIDP,Browser,ZorgID existing;
 ```
 
 Components:
@@ -76,9 +79,11 @@ Components:
 - **SQL database**, **key storage** — node backing services.
 - **EHR** (existing) — acquires access tokens from the node.
 - **EHR admin interface** (existing) — drives credential issuance via the node.
-- **Central AET IDP** (external, existing) — the user's browser authenticates
-  the UZI smartcard against it, and the AET SDK communicates with it; not
-  deployed by the vendor.
+- **Workstation** (existing) — runs the user's browser and **AET ZorgID**, the
+  installed software that does the UZI smartcard crypto via the card reader.
+  ZorgID must be installed on every workstation that performs issuance.
+- **Central AET IDP** (external, existing) — workstation AET ZorgID and the AET
+  SDK both communicate with it; not deployed by the vendor.
 
 ## 3. Nuts node deployment
 
