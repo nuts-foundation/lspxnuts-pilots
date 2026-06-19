@@ -74,8 +74,8 @@ flowchart TB
 
   classDef deploy fill:#cfe3ff,stroke:#3b6ea5,color:#11233a;
   classDef existing fill:#e5e5e5,stroke:#888,color:#222;
-  class RP,Node,AETSDK,DB,Keys,L1 deploy;
-  class EHR,Admin,AETIDP,Browser,ZorgID,Reader,L2 existing;
+  class RP,Node,AETSDK,DB,Keys,ZorgID,Reader,L1 deploy;
+  class EHR,Admin,AETIDP,Browser,L2 existing;
 ```
 
 Components:
