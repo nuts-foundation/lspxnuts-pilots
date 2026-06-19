@@ -64,10 +64,16 @@ flowchart TB
   Browser -->|uses| Admin
   ZorgID -->|communicates with| AETIDP
 
+  subgraph Legend["Legend"]
+    direction LR
+    L1["To be deployed for the pilot"]
+    L2["Existing / external"]
+  end
+
   classDef deploy fill:#cfe3ff,stroke:#3b6ea5,color:#11233a;
   classDef existing fill:#e5e5e5,stroke:#888,color:#222;
-  class RP,Node,AETSDK,DB,Keys deploy;
-  class EHR,Admin,AETIDP,Browser,ZorgID existing;
+  class RP,Node,AETSDK,DB,Keys,L1 deploy;
+  class EHR,Admin,AETIDP,Browser,ZorgID,L2 existing;
 ```
 
 Components:
