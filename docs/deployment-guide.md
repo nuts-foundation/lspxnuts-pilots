@@ -34,6 +34,7 @@ flowchart TB
   subgraph WS["Workstation — existing (AET ZorgID installed for the pilot)"]
     Browser["User browser<br/>[Browser]<br/>HCP staff doing credential issuance"]
     ZorgID["AET ZorgID<br/>[Installed software]<br/>Smartcard crypto via the card reader"]
+    Reader["Smartcard reader<br/>[Hardware]<br/>e.g. HID OMNIKEY 3121"]
   end
 
   Inbound(["Inbound public traffic<br/>did:web resolution, OAuth2 token requests"])
@@ -41,7 +42,7 @@ flowchart TB
   subgraph Vendor["Vendor deployment — to be deployed"]
     RP["Reverse proxy<br/>[Container]<br/>Forwards inbound traffic to the Nuts public API"]
     Node["Nuts node<br/>[Container]<br/>Hosts SP and per-HCP wallets; issues credentials, requests tokens"]
-    AETSDK["AET ZORG-ID SDK<br/>[Container]<br/>Signs AET credentials"]
+    AETSDK["AET ZORG-ID SDK<br/>[Container]<br/>Issues credentials through the smartcard"]
     DB[("SQL database<br/>[Database]<br/>Node storage")]
     Keys[("Key storage<br/>[Vault / Key Vault / disk]<br/>Signing keys")]
   end
@@ -56,13 +57,14 @@ flowchart TB
   Inbound --> RP
   RP -->|public API| Node
   Node -->|request credential| AETSDK
-  AETSDK -->|communicates with| AETIDP
+  AETSDK -->|invoke signing operation| AETIDP
   Node --> DB
   Node --> Keys
   EHR -->|request access token| Node
-  Admin -->|credential issuance| Node
+  Admin -->|manage wallets, start credential issuance| Node
   Browser -->|uses| Admin
-  ZorgID -->|communicates with| AETIDP
+  ZorgID -->|reads card| Reader
+  ZorgID -->|authenticate session| AETIDP
 
   subgraph Legend["Legend"]
     direction LR
@@ -73,7 +75,7 @@ flowchart TB
   classDef deploy fill:#cfe3ff,stroke:#3b6ea5,color:#11233a;
   classDef existing fill:#e5e5e5,stroke:#888,color:#222;
   class RP,Node,AETSDK,DB,Keys,L1 deploy;
-  class EHR,Admin,AETIDP,Browser,ZorgID,L2 existing;
+  class EHR,Admin,AETIDP,Browser,ZorgID,Reader,L2 existing;
 ```
 
 Components:
@@ -81,15 +83,18 @@ Components:
   public API (OAuth2 + `.well-known`/did:web).
 - **Nuts node** — central component; calls the AET SDK to acquire credentials,
   persists to the SQL database, signs with key storage.
-- **AET ZORG-ID SDK** — deployed by the vendor; signs AET credentials.
+- **AET ZORG-ID SDK** — deployed by the vendor; issues credentials through the
+  smartcard, invoking signing operations at the central AET IDP.
 - **SQL database**, **key storage** — node backing services.
 - **EHR** (existing) — acquires access tokens from the node.
-- **EHR admin interface** (existing) — drives credential issuance via the node.
-- **Workstation** (existing) — runs the user's browser and **AET ZorgID**, the
-  installed software that does the UZI smartcard crypto via the card reader.
-  ZorgID must be installed on every workstation that performs issuance.
-- **Central AET IDP** (external, existing) — workstation AET ZorgID and the AET
-  SDK both communicate with it; not deployed by the vendor.
+- **EHR admin interface** (existing) — manages wallets and starts credential
+  issuance via the node.
+- **Workstation** (existing) — runs the user's browser, **AET ZorgID** (the
+  installed software that does the UZI smartcard crypto), and a **smartcard
+  reader**. ZorgID must be installed on every workstation that performs issuance.
+- **Central AET IDP** (external, existing) — workstation AET ZorgID authenticates
+  the session against it, and the AET SDK invokes signing operations on it; not
+  deployed by the vendor.
 
 ## 3. Nuts node deployment
 
