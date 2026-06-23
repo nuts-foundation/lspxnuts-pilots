@@ -1,6 +1,6 @@
 # LSPxNuts Medicatie Overdracht Pilot 1 deployment guide
 
-This guide covers the infrastructure required for participating in the LSPxNuts pilot.
+This guide explains the infrastructure required for participating in the LSPxNuts pilot.
 
 ## 1. Architecture & components
 
@@ -84,47 +84,49 @@ Components:
     - `crypto.storage`: configure, depending on key storage
     - `http.internal.address`: set to `0.0.0.0:8081` for internal API access from outside container
     - `auth.experimental.jwtbearerclient` set to `true` to enable two-VP bearer token flow
+    - 
     - `storage.sql.connection`: configure, depending on SQL database
   - Files:
     - Mount policy file (TBD: add link) into `/nuts/config/policy/`
 
-## 3. Key storage setup
+## 3. AET ZORG-ID SDK deployment
 
-- Vault / Azure Key Vault configuration
-- On-disk option and its at-rest responsibilities
-- Key rotation procedure + cadence (vendor decides).
+- Getting the image (AET licensing; not redistributed — #10)
+- Running it alongside the node, HTTP (`:5003`) must be accessible from the Nuts node.
+  - Configuration:
+    - **Note:** if you alter `appsettings.json`, take it from [assets/appsettings.json](assets/appsettings.json) and mount it;
+      - `./appsettings.json:/app/Assets/appsettings.json:ro`.
+    - For DeveloperMode (enabling self-issued UZI certificates):
+      - Mount PFX file of fake UZI CA (TBD: add link):
+        - `./pki/fake-uzi-ca.pfx:/app/Assets/SoftCertificates/fake-uzi-ca.pfx:ro`
+      - Enable DeveloperMode
+        - Either in `Assets/appsettings.json` under `OpenID4VC`, set `DeveloperMode` to `true`
+        - Or using environment variables:
+          ```yaml
+            environment:
+              OpenID4VC__DeveloperMode: "true"
+          ``` 
+      - Configure fake UZI CA
+        - Either in `Assets/appsettings.json` under `Sdk.SoftCertificates`:
+          ```json
+          {
+            "FileName": "fake-uzi-ca.pfx",
+            "Password": "",
+            "Description": "Test Zorgverlener Lsp Demo (UZI type Z, signed by uzi-did-x509-issuer test_ca)"
+          }
+          ```
+        - Or using environment variables:
+          ```yaml
+            environment:
+              Sdk__SoftCertificates__1__FileName: "fake-uzi-ca.pfx"
+              Sdk__SoftCertificates__1__Password: ""
+              Sdk__SoftCertificates__1__Description: "Test Zorgverlener Lsp Demo (UZI type Z, signed by uzi-did-x509-issuer test_ca)"
+          ``` 
+    - Configure AET SDK credential issuer metadata:
+      - Take [assets/metadata_config.json](assets/metadata_config.json)
+      - Replace `aet:5003` with the AET SDK Docker container host/port, so it can be reached by the Nuts node (`credential_issuer`, `credential_endpoint`)
+      - Mount it; `./metadata_config.json:/app/Assets/OpenId4VC/metadata_config.json:ro`
 
-## 4. AET ZORG-ID SDK deployment
+## 4. TLS / certificates
 
-> Participation guide B.1.
-- Obtaining the image (AET licensing; not redistributed — #10)
-- Running it alongside the node: stable HTTPS endpoint reachable from the node
-- mTLS / certificate binding / network exposure → AET docs (link, don't copy)
-- How the node authenticates to the SDK (#11, TBD)
-- Soft-cert dev posture vs production (real UZI/HSM) — #12.
-
-## 5. TLS / certificates
-
-> Filled in once #2 is decided. Nuts convention (nuts-node#4156): OAuth2
-> endpoints → public cert, data endpoints → PKIoverheid Private cert.
-- Where each cert is configured
-- CA trust (AET + others baked into the image).
-
-## 6. Operations
-
-> Participation guide A.4.
-- Healthcheck endpoints + what to alert on
-- Log routing and verbosity (pilot vs production)
-- Backup / restore (DB, keys)
-- Upgrade path within the pilot window.
-
-## 7. Demo stack
-
-- `docker compose up`: what it brings up (mock AS, mock issuers, AET dev mode, UI)
-- How it differs from a real deployment
-- Using it as a pre-flight sanity check.
-
-## Appendix: pinned versions
-
-Single table of every pinned tag/version, kept in sync with the demo stack and
-the integration guide.
+TBD
