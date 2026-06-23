@@ -9,6 +9,15 @@ Docs for Nuts vendors participating in the pilot. Read them in this order:
 | 3 | [Provisioning guide](provisioning-guide.md) | Setting up SP and HCP identities and credentials | Software engineers           |
 | 4 | [Data querying guide](data-querying-guide.md) | Querying the LSP for data | Software engineers |
 
+## Note conventions
+
+Two kinds of callouts appear in these guides:
+
+- `> **Note:** …` — guidance kept for the reader.
+- `> 🚧 **TBD/TODO/Open question:** …` — editorial callouts to resolve before the
+  docs are final. Inline gaps are marked `TODO`/`TBD`. Search for 🚧, `TODO`, or
+  `TBD` to find everything still open.
+
 ## Glossary
 
 | Term                                                              | Meaning                                                                                                                           |

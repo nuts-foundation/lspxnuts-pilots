@@ -14,7 +14,7 @@ This guide explains how to set up your service provider and client healthcare pr
 - `<hcp-ura>`: Healthcare Provider's URA-identifier (e.g. `12345678`).
 - `<patient-bsn>`: Patient's BSN (e.g. `12345678`).
 
-> **Note:** the `gis-nl.example` `@context` URLs and the `authorizationRule`
+> 🚧 **TBD:** the `gis-nl.example` `@context` URLs and the `authorizationRule`
 > value in the examples are placeholders from the demo; update them once the
 > GIS-NL spec is finalized.
 
@@ -126,11 +126,43 @@ Content-Type: application/json
 }
 ```
 
-> **Note:** AORTA/LSP's ServiceProviderCredential issuer isn't available, blanks will be filled in due time.
+> 🚧 **TBD:** AORTA/LSP's ServiceProviderCredential issuer isn't available; blanks will be filled in due time.
 
 ### `HealthcareProviderCredential`
 
-_TODO_
+The `HealthcareProviderCredential` is the healthcare provider's organization
+identity. Unlike the other credentials it is **self-issued from the HCP's UZI
+server certificate**: the issuer is a `did:x509` derived from that certificate
+(the URA is read from the certificate's SAN, not passed in), so it is generated
+with the [`go-didx509-toolkit`](https://github.com/nuts-foundation/go-didx509-toolkit)
+CLI rather than a node endpoint.
+
+Generate the credential from the UZI server certificate:
+
+```shell
+didx509-toolkit vc \
+  --type HealthcareProviderCredential \
+  <cert-chain.pem> <signing-key.pem> "<ca-fingerprint-dn>" <hcp-did>
+```
+
+- `<cert-chain.pem>` — the full UZI **server** certificate chain (PEM).
+- `<signing-key.pem>` — the unencrypted private key for that certificate (PEM;
+  an Azure Key Vault URL is also accepted).
+- `<ca-fingerprint-dn>` — Subject DN of the CA in the chain used for the
+  `did:x509` ca-fingerprint (e.g. `"CN=UZI-register Private Server CA ..."`).
+- `<hcp-did>` — the HCP subject's `did:web` DID (the credential subject).
+
+The toolkit prints a JWT-encoded VC, signed RS256 (UZI keys are RSA, which is
+what AORTA expects). Load it into the HCP wallet:
+
+```http request
+POST <node>/internal/vcr/v2/holder/<hcp-subject>/vc
+Content-Type: application/json
+
+"<the JWT VC printed by the toolkit>"
+```
+
+A `204 No Content` confirms the credential is in the HCP wallet.
 
 ### `ServiceProviderDelegationCredential`
 
@@ -140,7 +172,7 @@ to the SP wallet. This is typically done through an administration UI of the hea
 In this pilot, the healthcare provider probably doesn't have a wallet separate from the vendor's,
 meaning the vendor can self-issue the credential.
 
-> **Open question:** do we want a healthcare provider employee to issue this credential (even when the vendor could do it themselves), to show the process?
+> 🚧 **Open question:** do we want a healthcare provider employee to issue this credential (even when the vendor could do it themselves), to show the process?
 
 Issue the credential from the healthcare provider's DID:
 
