@@ -1,7 +1,7 @@
 {
   "credential_issuer": "http://aet:5003/v1/openid",
   "authorization_servers": [
-    "https://cid.test.cid.internal.aeteurope.com/oauth"
+    "https://cid.test.cid.internal.aeteurope.com/oauth/"
   ],
   "credential_endpoint": "http://aet:5003/v1/openid/credential",
   "credential_response_encryption": {

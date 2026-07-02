@@ -89,9 +89,10 @@ Components:
   - Files:
     - Mount policy file (TBD: add link) into `/nuts/config/policy/`
 
-## 3. AET ZORG-ID SDK deployment
+## 3. ZORG-ID SDK deployment
 
-- Getting the image (AET licensing; not redistributed — #10)
+- Get the image from VZVZ by [registering as a software vendor](https://vzvz.atlassian.net/helpcenter/zorg-id/portal/11), via developer support.
+- [Register OIDC client through VZVZ](https://vzvz.atlassian.net/helpcenter/zorg-id/portal/11/group/377/create/1703) for interacting with ZORG-ID SDK
 - Running it alongside the node, HTTP (`:5003`) must be accessible from the Nuts node.
   - Configuration:
     - **Note:** if you alter `appsettings.json`, take it from [assets/appsettings.json](assets/appsettings.json) and mount it;
@@ -122,9 +123,9 @@ Components:
               Sdk__SoftCertificates__1__Password: ""
               Sdk__SoftCertificates__1__Description: "Test Zorgverlener Lsp Demo (UZI type Z, signed by uzi-did-x509-issuer test_ca)"
           ``` 
-    - Configure AET SDK credential issuer metadata:
+    - Configure ZORG-ID SDK credential issuer metadata:
       - Take [assets/metadata_config.json](assets/metadata_config.json)
-      - Replace `aet:5003` with the AET SDK Docker container host/port, so it can be reached by the Nuts node (`credential_issuer`, `credential_endpoint`)
+      - Replace `aet:5003` with the ZORG-ID SDK Docker container host/port, so it can be reached by the Nuts node (`credential_issuer`, `credential_endpoint`)
       - Mount it; `./metadata_config.json:/app/Assets/OpenId4VC/metadata_config.json:ro`
 
 ## 4. TLS / certificates
