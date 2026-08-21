@@ -12,29 +12,29 @@ sample payloads, and a working reference stack are handed over.
 Open items to resolve before this guide is final. Each is tracked in an issue
 where one exists.
 
-- **TLS/mTLS cert for the data connection** (#2). Nuts convention
+- **TLS/mTLS cert for the data connection** ([#2](https://github.com/nuts-foundation/lspxnuts-pilots/issues/2)). Nuts convention
   (nuts-node#4156): OAuth2 endpoints → public cert, data endpoints →
   PKIoverheid Private cert. Exact pilot requirement not yet fixed.
-- **Who issues the AORTA-afsprakenstelsel credentials** (#9) — which party hosts
+- **Who issues the AORTA-afsprakenstelsel credentials** ([#9](https://github.com/nuts-foundation/lspxnuts-pilots/issues/9)) — which party hosts
   issuance of the `ServiceProviderCredential` and who vendors should contact to
   obtain it. (The guide currently refers to this generically as "Pilot
   governance".)
 - **Whether JSON-LD context files must be mounted at all** (#6). Pilot
   credentials are JWT-format; JSON-LD is used only for signature verification,
   so a local context bundle may not be needed.
-- **How vendors acquire the AET SDK** (#10) — the AET ZORG-ID SDK is a Docker
+- **How vendors acquire the AET SDK** ([#10](https://github.com/nuts-foundation/lspxnuts-pilots/issues/10)) — the AET ZORG-ID SDK is a Docker
   image; distribution channel and licensing/access path to be determined.
-- **How the Nuts node authenticates to the AET SDK** (#11) — the authentication
+- **How the Nuts node authenticates to the AET SDK** ([#11](https://github.com/nuts-foundation/lspxnuts-pilots/issues/11)) — the authentication
   mechanism, and whether AET certificate material is needed for it, to be
   determined.
-- **Soft test certificates** (#12) — produced by the pilot team so developers
+- **Soft test certificates** ([#12](https://github.com/nuts-foundation/lspxnuts-pilots/issues/12)) — produced by the pilot team so developers
   can work without physical UZI cards; need to be hosted somewhere and linked
   from this guide.
-- **How vendors discover the LSP's endpoints** (#13) — via GF Addressing or the
+- **How vendors discover the LSP's endpoints** ([#13](https://github.com/nuts-foundation/lspxnuts-pilots/issues/13)) — via GF Addressing or the
   Nuts Discovery Service; not yet decided.
-- **Number of Nuts/MEDGEG APIs per feature** (#3). Detailed integration guide
+- **Number of Nuts/MEDGEG APIs per feature** ([#3](https://github.com/nuts-foundation/lspxnuts-pilots/issues/3)). Detailed integration guide
   (endpoints, examples) still being written.
-- **Reference architecture details** (#4) — the deployment diagram below is a
+- **Reference architecture details** ([#4](https://github.com/nuts-foundation/lspxnuts-pilots/issues/4)) — the deployment diagram below is a
   first version; details still need confirmation.
 
 ## 1. Scope of this document
