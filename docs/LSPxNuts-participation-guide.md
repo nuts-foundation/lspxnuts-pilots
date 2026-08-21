@@ -4,8 +4,10 @@ This document helps a Nuts vendor scope the work needed to participate in
 the LSPxNuts Medicatie Overdracht Pilot 1. It describes what a
 participating vendor builds, what they host, what is delivered to them,
 and roughly how much effort each piece is. It is not an implementation
-manual; once a vendor commits to participating, the detailed setup docs,
-sample payloads, and a working reference stack are handed over.
+manual; the [deployment guide](deployment-guide.md), [provisioning
+guide](provisioning-guide.md), and [data-querying guide](data-querying-guide.md)
+cover the detailed setup, sample payloads, and API reference (see the
+[docs index](README.md) for the full set).
 
 ## To be determined
 
@@ -14,28 +16,15 @@ where one exists.
 
 - **TLS/mTLS cert for the data connection** ([#2](https://github.com/nuts-foundation/lspxnuts-pilots/issues/2)). Nuts convention
   (nuts-node#4156): OAuth2 endpoints → public cert, data endpoints →
-  PKIoverheid Private cert. Exact pilot requirement not yet fixed.
-- **Who issues the AORTA-afsprakenstelsel credentials** ([#9](https://github.com/nuts-foundation/lspxnuts-pilots/issues/9)) — which party hosts
-  issuance of the `ServiceProviderCredential` and who vendors should contact to
-  obtain it. (The guide currently refers to this generically as "Pilot
-  governance".)
-- **Whether JSON-LD context files must be mounted at all** ([#6](https://github.com/nuts-foundation/lspxnuts-pilots/issues/6)). Pilot
-  credentials are JWT-format; JSON-LD is used only for signature verification,
-  so a local context bundle may not be needed.
-- **How vendors acquire the AET SDK** ([#10](https://github.com/nuts-foundation/lspxnuts-pilots/issues/10)) — the AET ZORG-ID SDK is a Docker
-  image; distribution channel and licensing/access path to be determined.
-- **How the Nuts node authenticates to the AET SDK** ([#11](https://github.com/nuts-foundation/lspxnuts-pilots/issues/11)) — the authentication
-  mechanism, and whether AET certificate material is needed for it, to be
-  determined.
-- **Soft test certificates** ([#12](https://github.com/nuts-foundation/lspxnuts-pilots/issues/12)) — produced by the pilot team so developers
-  can work without physical UZI cards; need to be hosted somewhere and linked
-  from this guide.
-- **How vendors discover the LSP's endpoints** ([#13](https://github.com/nuts-foundation/lspxnuts-pilots/issues/13)) — via GF Addressing or the
-  Nuts Discovery Service; not yet decided.
-- **Number of Nuts/MEDGEG APIs per feature** ([#3](https://github.com/nuts-foundation/lspxnuts-pilots/issues/3)). Detailed integration guide
-  (endpoints, examples) still being written.
-- **Reference architecture details** ([#4](https://github.com/nuts-foundation/lspxnuts-pilots/issues/4)) — the deployment diagram below is a
-  first version; details still need confirmation.
+  PKIoverheid Private cert. VZVZ has proposed using the UZI certificate as the
+  Nuts node's client certificate; the pilot team's position is against that,
+  and a counter-proposal is being formulated for VZVZ.
+- **How AORTA-afsprakenstelsel credential issuance works** ([#22](https://github.com/nuts-foundation/lspxnuts-pilots/issues/22), see also
+  [#9](https://github.com/nuts-foundation/lspxnuts-pilots/issues/9)) — the issuer is AORTA/LSP;
+  what's still open is the issuance process.
+- **How vendors discover the LSP's endpoints** ([#13](https://github.com/nuts-foundation/lspxnuts-pilots/issues/13)) — GF Addressing, not ZORG-AB.
+- **OAuth2 scope(s) for the AORTA-GtK access-token request** ([#20](https://github.com/nuts-foundation/lspxnuts-pilots/issues/20)) — to be designed.
+- **Which FHIR queries Nuts parties perform** ([#21](https://github.com/nuts-foundation/lspxnuts-pilots/issues/21)) — to be designed.
 
 ## 1. Scope of this document
 
@@ -186,8 +175,8 @@ at least two weeks; begin acquiring certificates and putting agreements
   - optionally a personal **medewerkerspas op naam** (UZI-pas medewerker op
     naam) for patient enrollment — not needed if the zorgverlenerspas is used.
 
-How the Nuts node authenticates to the AET ZORG-ID SDK, and whether AET
-certificate material is required for it, is still being determined (#11).
+The Nuts node authenticates to the AET ZORG-ID SDK via a registered OIDC
+client; [Register the OIDC client through VZVZ](https://vzvz.atlassian.net/helpcenter/zorg-id/portal/11/group/377/create/1703).
 
 Note that the Healthcare Provider and Service Provider credentials themselves
 are not prerequisites; they are issued or loaded once the node is running and
@@ -204,10 +193,6 @@ DIDs exist (see Part B).
   - the public `.nl` URL for did:web resolution
   - `auth.experimental.jwtbearerclient: true` (gates the two-VP flow)
   - the crypto backend pointing at the configured key storage
-  - JSON-LD context mappings (`jsonld.contexts.localmapping`) for the
-    credential contexts — needed only if the node must process the
-    contexts locally; whether the pilot's JWT credentials require this
-    is still being verified (#6)
 - Strict mode on. The internal API is bound to a private interface;
   the vendor decides how to authenticate operators in front of it.
 
@@ -256,9 +241,10 @@ endpoints, hosts the AET SDK, populates the wallet for every customer,
 and builds three UIs that fit into three different points in HCP staff
 workflows.
 
-_The exact number of Nuts/MEDGEG API calls per feature is still being
-finalised (#3); the counts below describe the integration surface
-qualitatively._
+_Exact request/response shapes for the endpoints below are in the
+[provisioning guide](provisioning-guide.md) and [data-querying
+guide](data-querying-guide.md); the counts below describe the integration
+surface qualitatively._
 
 ### B.1 AET ZORG-ID SDK hosting (M-L)
 
@@ -270,7 +256,8 @@ the deployment is a stable HTTPS endpoint reachable from the Nuts
 node.
 
 The AET SDK is not redistributed as part of the pilot; the vendor
-obtains it from AET under their licensing terms.
+[registers as a software vendor with VZVZ](https://vzvz.atlassian.net/helpcenter/zorg-id/portal/11)
+and requests the image through developer support.
 
 ### B.2 Wallet bootstrap per subject (S, scales per HCP customer)
 
@@ -422,9 +409,11 @@ external call requires significant new UI work.
   mode, and a UI for issuing every credential and requesting tokens.
   Useful as a sanity check before cutting real code.
 - **Sample payloads** for every API call (request and response) and
-  **sample wallet states** for each subject type.
+  **sample wallet states** for each subject type — see the
+  [provisioning guide](provisioning-guide.md) and [data-querying
+  guide](data-querying-guide.md).
 - **Sample full flow trace** from wallet bootstrap through token
-  response.
+  response — the same two guides, read in sequence.
 - Pointers to AET documentation, `go-didx509-toolkit`, `nuts-admin`,
   and the supported vault backends.
 - The pinned `nuts-node` container image tag and the matching PD
