@@ -19,7 +19,7 @@ where one exists.
   issuance of the `ServiceProviderCredential` and who vendors should contact to
   obtain it. (The guide currently refers to this generically as "Pilot
   governance".)
-- **Whether JSON-LD context files must be mounted at all** (#6). Pilot
+- **Whether JSON-LD context files must be mounted at all** ([#6](https://github.com/nuts-foundation/lspxnuts-pilots/issues/6)). Pilot
   credentials are JWT-format; JSON-LD is used only for signature verification,
   so a local context bundle may not be needed.
 - **How vendors acquire the AET SDK** ([#10](https://github.com/nuts-foundation/lspxnuts-pilots/issues/10)) — the AET ZORG-ID SDK is a Docker
