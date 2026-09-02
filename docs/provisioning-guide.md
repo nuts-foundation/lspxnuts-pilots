@@ -20,7 +20,10 @@ This guide explains how to set up your service provider and client healthcare pr
 
 ## Required credentials
 
-Before any token can be requested, the wallets have to be provisioned. The table below explains who needs to acquire which credentials and how often.
+Before any token can be requested, the wallets have to be provisioned. See
+the [participation guide](LSPxNuts-participation-guide.md#5-credentials-and-roles)
+for the who-issues-what diagram; the table below explains frequency and
+prerequisites.
 
 | Actor                                      | Frequency                    | Action                                                                           | Requirement                                                      |
 |--------------------------------------------|------------------------------|----------------------------------------------------------------------------------|------------------------------------------------------------------|

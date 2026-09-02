@@ -41,6 +41,7 @@ flowchart TB
   EHR -->|request access token| Node
   Admin -->|manage wallets, start credential issuance| Node
   Browser -->|uses| Admin
+  Browser -->|smartcard authorize redirect (PIN entry)| AETSDK
   ZorgID -->|reads card| Reader
   ZorgID -->|authenticate session| AETIDP
 
@@ -63,7 +64,11 @@ Components:
 - **Nuts node** — central component; calls the AET SDK to acquire credentials,
   persists to the SQL database, signs with key storage.
 - **AET ZORG-ID SDK** — deployed by the vendor; issues credentials through the
-  smartcard, invoking signing operations at the central AET IDP.
+  smartcard, invoking signing operations at the central AET IDP. Reached two
+  ways: backend-to-backend from the Nuts node (`/credential`), and directly by
+  the issuance workstation's browser for the OpenID4VCI `/authorize` redirect
+  during real smartcard issuance (DeveloperMode skips this — no browser
+  involvement).
 - **SQL database**, **key storage** — node backing services.
 - **EHR** (existing) — acquires access tokens from the node.
 - **EHR admin interface** (existing) — manages wallets and starts credential
@@ -93,7 +98,17 @@ Components:
 
 - Get the image from VZVZ by [registering as a software vendor](https://vzvz.atlassian.net/helpcenter/zorg-id/portal/11), via developer support.
 - [Register OIDC client through VZVZ](https://vzvz.atlassian.net/helpcenter/zorg-id/portal/11/group/377/create/1703) for interacting with ZORG-ID SDK
-- Running it alongside the node, HTTP (`:5003`) must be accessible from the Nuts node.
+- Running it alongside the node:
+  - HTTP (`:5003`) must be accessible from the Nuts node for the backend
+    `/credential` call (all modes).
+  - For real smartcard issuance (DeveloperMode off), the SDK's `/authorize`,
+    `/token`, and `/.well-known/...` endpoints must also be reachable by the
+    browser of whichever workstation runs the issuance UI — the Authorization
+    Code flow redirects the browser there directly for card/PIN entry, then
+    back to the Nuts node's callback.
+  - The Nuts node must be registered as an OAuth client with AET's
+    authorization server (`client_id` + the node's OpenID4VCI callback
+    `redirect_uri`), or the `/authorize` step fails with an OAuth error.
   - Configuration:
     - **Note:** if you alter `appsettings.json`, take it from [assets/appsettings.json](assets/appsettings.json) and mount it;
       - `./appsettings.json:/app/Assets/appsettings.json:ro`.
