@@ -243,7 +243,56 @@ A `204 No Content` confirms the credential is in the SP wallet.
 ### `HealthcareProfessionalDelegationCredential`
 
 The `HealthcareProfessionalDelegationCredential` is issued by the healthcare professional to the HCP wallet,
-using their UZI smartcard ("zorgverlenerspas").
+using their UZI smartcard ("zorgverlenerspas"). This is the most involved
+flow in the pilot — it spans the browser, the Nuts node, the AET SDK, and the
+workstation's smartcard software. `PatientEnrollmentCredential` issuance
+follows the exact same flow (only `credential_configuration_id` and
+`credential_subject_data` differ).
+
+```mermaid
+sequenceDiagram
+  actor Staff as HCP staff
+  participant Browser
+  participant Admin as EHR admin interface
+  participant Node as Nuts node
+  participant AET as AET ZORG-ID SDK
+  participant ZorgID as AET ZorgID (workstation)
+  participant Reader as Smartcard reader (workstation)
+  participant AETIDP as Central AET IDP
+
+  Staff->>Admin: start delegation issuance
+  Admin->>Node: POST /request-credential<br/>(issuer=AET SDK issuer URL, profile=aet,<br/>redirect_uri, credential_request_params)
+  Node->>AET: discover issuer metadata<br/>(.well-known/openid-credential-issuer)
+  AET-->>Node: Metadata
+  Node-->>Admin: { redirect_uri: authorizeUrl, session_id }
+  Admin->>Browser: open authorizeUrl
+
+  Browser->>AET: GET /authorize
+  AET->>ZorgID: open zorgid:// app link
+  Staff->>Reader: insert UZI card, enter PIN
+  ZorgID->>Reader: read card
+  Reader-->>ZorgID: card data / signature
+  ZorgID->>AETIDP: authenticate card session
+  AETIDP-->>ZorgID: session OK
+  ZorgID-->>AET: session confirmed
+  AET-->>Browser: 302 to Node callback + authorization code
+
+  Browser->>Node: GET callback?code=...
+  Node->>AET: POST /token (exchange code)
+  AET-->>Node: access_token
+  Node->>AET: POST /v1/openid/credential<br/>(access_token, proof, credential_subject_data)
+  AET->>AETIDP: invoke signing operation
+  AETIDP-->>AET: signed
+  AET-->>Node: signed JWT VC
+  Node->>Node: store VC in HCP wallet
+  Node-->>Browser: redirect to app redirect_uri
+  Browser->>Admin: (page load) issuance complete
+```
+
+> **Note:** in DeveloperMode (soft-cert, no physical card — see the
+> [deployment guide](deployment-guide.md#3-zorg-id-sdk-deployment)) the
+> `Browser`/`ZorgID`/`Reader`/`AETIDP` steps above don't happen: the request
+> carries a `developer-mode:<CN>` bearer and AET signs immediately.
 
 Use OpenID4VCI to issue the credential to the Nuts node:
 
@@ -300,6 +349,9 @@ The `PatientEnrollmentCredential` is issued per patient to the HCP wallet.
 It's either issued by:
 - the healthcare professional using their UZI smartcard ("zorgverlenerspas"), or
 - a healthcare provider employee using their UZI smartcard ("medewerkerspas op naam").
+
+Same flow as `HealthcareProfessionalDelegationCredential` above — see the
+sequence diagram there.
 
 Use OpenID4VCI to issue the credential to the Nuts node:
 
