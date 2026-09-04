@@ -8,6 +8,7 @@ Docs for Nuts vendors participating in the pilot. Read them in this order:
 | 2 | [Deployment guide](deployment-guide.md) | Standing up the infrastructure | Ops / platform engineers     |
 | 3 | [Provisioning guide](provisioning-guide.md) | Setting up SP and HCP identities and credentials | Software engineers           |
 | 4 | [Data querying guide](data-querying-guide.md) | Querying the LSP for data | Software engineers |
+| 5 | [UX considerations](ux-considerations.md) | Designing the issuance and query UX | Product / UX designers |
 
 ## Note conventions
 

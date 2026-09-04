@@ -21,7 +21,10 @@ where one exists.
   and a counter-proposal is being formulated for VZVZ.
 - **How AORTA-afsprakenstelsel credential issuance works** ([#22](https://github.com/nuts-foundation/lspxnuts-pilots/issues/22), see also
   [#9](https://github.com/nuts-foundation/lspxnuts-pilots/issues/9)) — the issuer is AORTA/LSP;
-  what's still open is the issuance process.
+  what's still open is the issuance process. Known so far: the vendor must
+  conform to LSP/VZVZ's governance requirements (Pakket van Eisen, PvE)
+  to apply; which requirements and how conformance is demonstrated is
+  part of what's still being designed.
 - **How vendors discover the LSP's endpoints** ([#13](https://github.com/nuts-foundation/lspxnuts-pilots/issues/13)) — GF Addressing, not ZORG-AB.
 - **OAuth2 scope(s) for the AORTA-GtK access-token request** ([#20](https://github.com/nuts-foundation/lspxnuts-pilots/issues/20)) — to be designed.
 - **Which FHIR queries Nuts parties perform** ([#21](https://github.com/nuts-foundation/lspxnuts-pilots/issues/21)) — to be designed.
@@ -56,6 +59,9 @@ themselves.
 - [ ] Supported smart card reader (e.g. HID OMNIKEY 3121) — available to
       developers/testers, and on the workstations of staff doing patient
       enrollment and professional delegation during the pilot
+- [ ] Workstation with the AET ZorgID app installed — same workstations as
+      the smart card reader; does the UZI smartcard crypto and reaches the
+      AET SDK's `/authorize` page during real smartcard issuance
 - [ ] UZI server certificate — for the HealthcareProviderCredential (per HCP customer)
 - [ ] Personal UZI care-professional card (zorgverlenerspas) — for the
       HealthcareProfessionalDelegationCredential; can also perform patient enrollment
@@ -126,6 +132,64 @@ The MEDGEG resource server is the LSP FHIR API, operated by VZVZ. The
 LSP forwards queries to the data holders behind it; what sits behind the
 LSP is not visible to the vendor and is out of scope here.
 
+## 5. Credentials and roles
+
+Who issues each pilot credential, which protocol they use, and where it
+ends up:
+
+```mermaid
+flowchart LR
+  Gov["AORTA/LSP<br/>Pilot governance<br/>[External]"]
+  HCP["Healthcare Provider (HCP)"]
+  Prof["Care professional<br/>UZI zorgverlenerspas"]
+  Employee["HCP employee<br/>UZI medewerkerspas op naam"]
+
+  SPWallet[("SP wallet<br/>vendor, on the Nuts node")]
+  HCPWallet[("HCP wallet<br/>one per HCP customer, on the Nuts node")]
+
+  SPC["ServiceProviderCredential"]
+  SPDC["ServiceProviderDelegationCredential"]
+  HPC["HealthcareProviderCredential"]
+  HPDC["HealthcareProfessionalDelegationCredential"]
+  PEC["PatientEnrollmentCredential"]
+
+  Gov -->|"Issues<br/>(mechanism TBD — likely out-of-band)"| SPC
+  SPC -->|Held by| SPWallet
+
+  HCP -->|"Issues<br/>(node VCR issuer API, org's did:web)"| SPDC
+  SPDC -->|Held by| SPWallet
+
+  HCP -->|"Issues<br/>(go-didx509-toolkit CLI)"| HPC
+  HPC -->|Held by| HCPWallet
+
+  Prof -->|"Issues<br/>OpenID4VCI via AET ZORG-ID SDK"| HPDC
+  HPDC -->|Held by| HCPWallet
+
+  Prof -->|"Issues<br/>OpenID4VCI via AET ZORG-ID SDK"| PEC
+  Employee -->|"Issues<br/>OpenID4VCI via AET ZORG-ID SDK"| PEC
+  PEC -->|Held by| HCPWallet
+
+  classDef wallet fill:#cfe3ff,stroke:#3b6ea5,color:#11233a;
+  classDef credential fill:#fff3cd,stroke:#a67c00,color:#3a2f00;
+  class SPWallet,HCPWallet wallet;
+  class SPC,SPDC,HPC,HPDC,PEC credential;
+```
+
+- `HealthcareProviderCredential` is self-issued: its actual issuer is a
+  `did:x509` derived from the HCP's UZI server certificate, not the HCP's
+  regular DID — drawn here as "HCP issues" for simplicity.
+- `HealthcareProfessionalDelegationCredential` and `PatientEnrollmentCredential`
+  are signed by the AET ZORG-ID SDK, using the private key bound to the
+  professional's/employee's UZI smartcard — drawn here as the card holder
+  issuing, since that's whose identity the credential asserts.
+- `KwalificatieCredential` (GBZ qualification, part 2 scope) is left out —
+  not part of Pilot 1's credential set (see the TBD list, #9/#22).
+- `ServiceProviderDelegationCredential`'s issuer is drawn as the HCP org, but
+  in the pilot the vendor self-issues it on the HCP's behalf (B.3.a).
+
+See the [provisioning guide](provisioning-guide.md) for the request/response
+details behind each of these.
+
 ---
 
 ## Part A - Hosting a Nuts node
@@ -155,9 +219,16 @@ at least two weeks; begin acquiring certificates and putting agreements
   but then the vendor is responsible for securing encryption and data at rest.
 - At least one **supported smart card reader** (for example, the HID OMNIKEY
   3121) for the workstations that run the issuance UIs.
+- The **AET ZorgID app** installed on those same workstations — it does the
+  UZI smartcard crypto via the reader, and is what the browser reaches when
+  redirected to the AET SDK's `/authorize` page during real smartcard
+  issuance (see B.1).
 
 **Paperwork / agreements**
 
+- Conformance to LSP/VZVZ's governance requirements (Pakket van Eisen, PvE)
+  — required before the `ServiceProviderCredential` can be applied for.
+  Scope and process still being designed ([#22](https://github.com/nuts-foundation/lspxnuts-pilots/issues/22)).
 - A **ZorgID agreement** with AET for the vendor (each participating HCP needs
   their own agreement as well).
 - **Test smart cards** from `zorgcsp.nl`. Soft test certificates (provided by
@@ -250,10 +321,12 @@ surface qualitatively._
 
 The AET SDK runs alongside the Nuts node. The pilot uses the SDK in
 production posture: real UZI / HSM-backed cert material, no soft-cert
-shortcuts. Detailed setup (mTLS, certificate binding, network
-exposure) lives in the AET documentation; what the pilot needs from
-the deployment is a stable HTTPS endpoint reachable from the Nuts
-node.
+shortcuts. It needs two network paths: a backend path from the Nuts
+node (all credential requests), and a front-channel path reachable by
+the issuance workstation's browser — real smartcard issuance redirects
+the browser to AET's own `/authorize` page for card/PIN entry. See the
+[deployment guide](deployment-guide.md#3-zorg-id-sdk-deployment) for
+the endpoint list and OAuth client registration requirement.
 
 The AET SDK is not redistributed as part of the pilot; the vendor
 [registers as a software vendor with VZVZ](https://vzvz.atlassian.net/helpcenter/zorg-id/portal/11)
@@ -335,6 +408,8 @@ before the UIs can be validated end-to-end as HCP staff will use them.
 - **Workstation requirement**: same as B.3.b - UZI smart card +
   reader + ZorgID installed on every workstation that will perform
   the enrolment.
+
+See the [UX considerations](ux-considerations.md) doc.
 
 The three together are where most of the Part B effort lives. If the
 vendor's product makes back-office HTTP calls easy and the
